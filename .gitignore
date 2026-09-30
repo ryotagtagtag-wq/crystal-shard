@@ -1,0 +1,9 @@
+node_modules/
+.next/
+.env
+.vercel
+output/
+.cache
+.coverage
+.DS_Store
+Thumbs.db
