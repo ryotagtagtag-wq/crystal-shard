@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  emailVerified DateTime?
+  image         String?
+  firebaseUid   String?  @unique
+  appBalances   AppUserBalance[]
+  transactions  Transaction[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Application {
+  id            String   @id @default(cuid()) // 例: `app_abc123`
+  name          String
+  description   String?
+  websiteUrl    String   @unique
+  status        ApplicationStatus @default(PENDING)
+  encryptedSecretKey   String   // アプリケーション固有HMACシークレット（暗号化保存）
+  trustedScore  Int      @default(70)
+  rateLimits    ApplicationRateLimit[]
+  admins        User[]   @relation("ApplicationAdmins")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AppUserBalance {
+  id        String   @id @default(cuid())
+  application Application @relation(fields: [applicationId], references: [id])
+  applicationId String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+  @@unique([applicationId, userId])
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  application   Application @relation(fields: [applicationId], references: [id])
+  applicationId String
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  type          TransactionType
+  amount        Int
+  reason        String?
+  idempotencyKey String? @unique // アプリケーション側でUUID v4生成、重複防止
+  createdAt     DateTime @default(now())
+}
+
+model ApplicationRateLimit {
+  id            String   @id @default(cuid())
+  application   Application @relation(fields: [applicationId], references: [id])
+  applicationId String
+  endpointType  String
+  maxPerMinute  Int
+  maxPerHour    Int
+  burstLimit    Int
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  application   Application? @relation(fields: [applicationId], references: [id])
+  applicationId String?
+  user          User?     @relation(fields: [userId], references: [id])
+  userId        String?
+  action        String
+  ipAddress     String
+  userAgent     String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum TransactionType {
+  AWARD
+  DEDUCT
+  PURCHASE
+  ADMIN_ADJUST
+  DAILY_BONUS
+  ACHIEVEMENT_BONUS
+  REFERRAL_BONUS
+}
